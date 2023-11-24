@@ -1,14 +1,18 @@
 import os
+import shutil
 
 import requests
 from bs4 import BeautifulSoup
 import subprocess
 import yaml
+import main as ble_main
 
 
 def write_default_commands(file_path):
     default_commands = {
         "syc_dir": "",
+        "arg_before": "",
+        "arg_after": "",
         'commands_before': [
             {'command': "python main.py --a D8:C9:E8:FB:2D:50 -c 'wifi on'"},
             {'command': "echo 'Executing command before main script'"}
@@ -61,8 +65,10 @@ def download_files(files_info_list, download_dir):
             response = requests.get(file_url)
 
             if response.status_code == 200:
-                with open(local_path, 'wb') as file:
+                temp = os.path.join(download_dir, "gpvideo.temp")
+                with open(temp, 'wb') as file:
                     file.write(response.content)
+                    shutil.move(temp, local_path)
                 print(f"Downloaded {file_name} successfully")
             else:
                 print(f"Failed to download {file_name}. Status code: {response.status_code}")
@@ -78,9 +84,11 @@ if __name__ == '__main__':
         exit(0)
     with open(config_file_path, 'r') as file:
         config = yaml.safe_load(file)
+    ble_main.mian(config.get('arg_before', ""))
     execute_commands(config.get('commands_before', []))
     # Example usage
     base_url = "http://10.5.5.9"
     files_info_list = fetch_files_info(base_url)
     download_files(files_info_list, config.get("syc_dir"))
+    ble_main.mian(config.get('arg_after', ""))
     execute_commands(config.get('commands_after', []))

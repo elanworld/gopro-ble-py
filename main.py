@@ -1,4 +1,6 @@
 import asyncio
+import shlex
+
 from bleak import discover
 from bleak import BleakClient, BleakScanner
 import logging
@@ -444,8 +446,7 @@ async def run(address, command_to_run=None, is_verbose=True):
 			else:
 				log.error("Unrecognized command %s" % cmd)
 
-
-if __name__ == "__main__":
+def mian(parse_str=None):
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--interactive', "-i", help="Interactive control shell",
 						required=False, type=bool, default=True)
@@ -458,8 +459,8 @@ if __name__ == "__main__":
 	parser.add_argument('--verbose', dest='verbose', action='store_true')
 	parser.add_argument('--no-verbose', dest='verbose', action='store_false')
 	parser.set_defaults(verbose=True)
-	args = parser.parse_args()
- 
+	args = parser.parse_args(shlex.split(parse_str) if parse_str else None)
+
 	command_to_run = None
 	is_verbose = args.verbose
 	if args.address == []:
@@ -493,7 +494,7 @@ if __name__ == "__main__":
 		command_to_run = args.command
 		args.interactive = False
 	if args.interactive:
-		command_to_run=None
+		command_to_run = None
 		if len(address) > 1:
 			print("Only one camera supported in interactive mode")
 			exit()
@@ -501,3 +502,6 @@ if __name__ == "__main__":
 	loop.set_debug(False)
 	tasks = asyncio.gather(*(run(add, command_to_run, is_verbose) for add in address))
 	loop.run_until_complete(tasks)
+
+if __name__ == "__main__":
+	mian()
