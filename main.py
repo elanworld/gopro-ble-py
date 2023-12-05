@@ -4,7 +4,7 @@ import shlex
 from bleak import discover
 from bleak import BleakClient, BleakScanner
 import logging
-import commands
+import gopro_commands as commands
 from termcolor import colored
 import argparse
 import signal
@@ -446,7 +446,7 @@ async def run(address, command_to_run=None, is_verbose=True):
 			else:
 				log.error("Unrecognized command %s" % cmd)
 
-def mian(parse_str=None):
+def main(parse_str=None):
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--interactive', "-i", help="Interactive control shell",
 						required=False, type=bool, default=True)
@@ -463,6 +463,7 @@ def mian(parse_str=None):
 
 	command_to_run = None
 	is_verbose = args.verbose
+	global address
 	if args.address == []:
 
 		async def discovercameras():
@@ -504,4 +505,4 @@ def mian(parse_str=None):
 	loop.run_until_complete(tasks)
 
 if __name__ == "__main__":
-	mian()
+	main()

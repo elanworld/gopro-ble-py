@@ -1,94 +1,146 @@
+import json
 import os
 import shutil
+import time
 
 import requests
 from bs4 import BeautifulSoup
 import subprocess
 import yaml
+# from mtpy.core import MTP
 import main as ble_main
 
 
-def write_default_commands(file_path):
-    default_commands = {
-        "syc_dir": "",
-        "arg_before": "",
-        "arg_after": "",
-        'commands_before': [
-            {'command': "python main.py --a D8:C9:E8:FB:2D:50 -c 'wifi on'"},
-            {'command': "echo 'Executing command before main script'"}
-        ],
-        'commands_after': [
-            {'command': "echo 'Executing command after main script'"},
-            {'command': "python main.py --a D8:C9:E8:FB:2D:50 -c 'poweroff'"}
-        ]
-    }
+class GoProData:
+    def __init__(self) -> None:
+        self.config_file = None
+        self.config = {}
+        self.copied_store_file = None
+        self.copied_store = {}
 
-    with open(file_path, 'w') as file:
-        yaml.dump(default_commands, file)
+    def __del__(self):
+        """保存字典到文件"""
+        self.save_to_file(self.config_file, self.config)
+        self.save_to_file(self.copied_store_file, self.copied_store)
 
+    def do_init(self):
+        """
+        读取文件到字典"""
+        self.config = self.load_from_file(self.config_file)
+        self.copied_store = self.load_from_file(self.copied_store_file)
+        self.write_default_commands()
 
-def execute_commands(commands):
-    for command_info in commands:
-        command = command_info["command"]
-        print(f"Executing command: {command}")
-        subprocess.run(command, shell=True)
+    def save_to_file(self, file_path, data):
+        """将字典保存到文件"""
+        with open(file_path, 'w') as json_file:
+            yaml.dump(data, json_file)
 
+    def load_from_file(self, file_path):
+        """从文件加载字典"""
+        try:
+            with open(file_path, 'r') as json_file:
+                return yaml.safe_load(json_file)
+        except FileNotFoundError:
+            return {}
 
-def fetch_files_info(base_url):
-    url = f"{base_url}/videos/DCIM/100GOPRO/"
-    response = requests.get(url)
+    def write_default_commands(self):
+        if os.path.exists(self.config_file):
+            return
+        os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
+        default_commands = {
+            "syc_dir": "",
+            "device_name": "",
+            "arg_before": "",
+            "arg_after": "",
+            'commands_before': [
+                {'command': "echo before main script"}
+            ],
+            'commands_after': [
+                {'command': "echo after script"}
+            ]
+        }
 
-    files_info = []
+        with open(self.config_file, 'w') as file:
+            yaml.dump(default_commands, file)
 
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'html.parser')
+    def execute_commands(self, commands):
+        for command_info in commands:
+            command = command_info["command"]
+            print(f"Executing command: {command}")
+            subprocess.run(command, shell=True)
 
-        # Find all <a> tags within <td> tags
-        links = soup.find_all('td')
+    def fetch_files_info(self, ):
+        url = "http://10.5.5.9/videos/DCIM/100GOPRO/"
+        response = requests.get(url + "?dd", timeout=10)
 
-        for link in links:
-            if link.a and "mp4" in link.a.get_text().lower():
-                file_name = link.a.get_text()
-                file_url = url + file_name
-                files_info.append((file_name, file_url))
+        files_info = []
 
-    return files_info
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
 
+            # Find all <a> tags within <td> tags
+            links = soup.find_all('td')
 
-def download_files(files_info_list, download_dir):
-    for file_info in files_info_list:
-        file_name, file_url = file_info
-        local_path = os.path.join(download_dir, file_name)
+            for link in links:
+                name = link.a.get_text().lower() if link.a else None
+                if link.a and name and name.startswith("g") and "lrv" not in name and "thm" not in name:
+                    file_name = link.a.get_text()
+                    file_url = url + file_name
+                    files_info.append((file_name, file_url))
+        return files_info
 
-        if not os.path.exists(local_path):
-            print(f"Downloading {file_name} to {download_dir}")
-            response = requests.get(file_url)
+    def download_files(self, files_info_list, download_dir):
+        start_len = len(self.copied_store)
+        for file_info in files_info_list:
+            file_name, file_url = file_info
+            local_path = os.path.join(download_dir, file_name)
 
-            if response.status_code == 200:
-                temp = os.path.join(download_dir, "gpvideo.temp")
-                with open(temp, 'wb') as file:
-                    file.write(response.content)
+            if not os.path.exists(local_path) and file_name not in self.copied_store:
+                print(f"Downloading {file_name} to {download_dir}")
+                response = requests.get(file_url)
+
+                if response.status_code == 200:
+                    temp = os.path.join(download_dir, "gpvideo.temp")
+                    with open(temp, 'wb') as file:
+                        file.write(response.content)
                     shutil.move(temp, local_path)
-                print(f"Downloaded {file_name} successfully")
-            else:
-                print(f"Failed to download {file_name}. Status code: {response.status_code}")
+                    print(f"Downloaded {file_name} successfully")
+                    self.copied_store[file_name] = 1
+                else:
+                    print(f"Failed to download {file_name}. Status code: {response.status_code}")
+        print(f"copid {len(self.copied_store) - start_len}")
 
 
 if __name__ == '__main__':
-    config_file_path = 'config/config.yaml'
-    config = None  # type: dict
-    os.makedirs("config", exist_ok=True)
-    if not os.path.exists(config_file_path):
-        write_default_commands(config_file_path)
-        print("init config and exit")
-        exit(0)
-    with open(config_file_path, 'r') as file:
-        config = yaml.safe_load(file)
-    ble_main.mian(config.get('arg_before', ""))
-    execute_commands(config.get('commands_before', []))
-    # Example usage
-    base_url = "http://10.5.5.9"
-    files_info_list = fetch_files_info(base_url)
-    download_files(files_info_list, config.get("syc_dir"))
-    ble_main.mian(config.get('arg_after', ""))
-    execute_commands(config.get('commands_after', []))
+    start = time.time()
+    config_file_path = 'config/config_gopro_down.yaml'
+    config_store_path = 'config/gopro_down.yaml'
+    go = GoProData()
+    go.config_file = config_file_path
+    go.copied_store_file = config_store_path
+    go.do_init()
+    max_retries = 5
+    for attempt in range(1, max_retries + 1):
+        try:
+            # find = copy_files_from_mtp(config.get("device_name"),config.get("syc_dir") )
+            # if find:
+            #     break
+            ble_main.main(go.config.get('arg_before', ""))
+            go.execute_commands(go.config.get('commands_before', []))
+            files_info_list = go.fetch_files_info()
+            go.download_files(files_info_list, go.config.get("syc_dir"))
+            ble_main.main(go.config.get('arg_after', ""))
+            go.execute_commands(go.config.get('commands_after', []))
+            go.__del__()
+            break  # 如果成功运行，跳出循环
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            if attempt < max_retries:
+                print(f"Retrying... (Attempt {attempt}/{max_retries})")
+                time.sleep(1)  # 等待一秒后重试
+            else:
+                print(f"Max retries reached. Exiting.")
+                exit(1)
+
+    print(f"use {time.time() - start}s")
+    print(f"done")
