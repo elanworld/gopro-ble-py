@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import shutil
@@ -112,6 +113,10 @@ class GoProData:
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--type', "-t", dest='type', help="run type: main", required=False, type=str)
+    args = parser.parse_args()
+
     start = time.time()
     config_file_path = 'config/config_gopro_down.yaml'
     config_store_path = 'config/gopro_down.yaml'
@@ -122,9 +127,11 @@ if __name__ == '__main__':
     max_retries = 5
     for attempt in range(1, max_retries + 1):
         try:
-            # find = copy_files_from_mtp(config.get("device_name"),config.get("syc_dir") )
-            # if find:
-            #     break
+            if args.type == "main":
+                ble_main.main("")
+                go.execute_commands(go.config.get('commands_before', []))
+                print(f"done")
+                exit(0)
             ble_main.main(go.config.get('arg_before', ""))
             go.execute_commands(go.config.get('commands_before', []))
             files_info_list = go.fetch_files_info()

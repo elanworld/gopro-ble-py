@@ -459,7 +459,7 @@ def main(parse_str=None):
 	parser.add_argument('--verbose', dest='verbose', action='store_true')
 	parser.add_argument('--no-verbose', dest='verbose', action='store_false')
 	parser.set_defaults(verbose=True)
-	args = parser.parse_args(shlex.split(parse_str) if parse_str else None)
+	args = parser.parse_args(shlex.split(parse_str) if parse_str is not None else None)
 
 	command_to_run = None
 	is_verbose = args.verbose
