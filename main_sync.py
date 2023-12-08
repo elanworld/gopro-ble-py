@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 import os
 import shutil
@@ -72,7 +73,7 @@ class GoProData:
 
     def fetch_files_info(self, ):
         url = "http://10.5.5.9/videos/DCIM/100GOPRO/"
-        response = requests.get(url + "?dd", timeout=10)
+        response = requests.get(url + "?da", timeout=10)
 
         files_info = []
 
@@ -106,7 +107,7 @@ class GoProData:
                         file.write(response.content)
                     shutil.move(temp, local_path)
                     print(f"Downloaded {file_name} successfully")
-                    self.copied_store[file_name] = 1
+                    self.copied_store[file_name] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     print(f"Failed to download {file_name}. Status code: {response.status_code}")
         print(f"copid {len(self.copied_store) - start_len}")
