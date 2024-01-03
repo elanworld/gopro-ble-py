@@ -97,7 +97,10 @@ class GoProData:
             file_name, file_url = file_info
             local_path = os.path.join(download_dir, file_name)
 
-            if not os.path.exists(local_path) and file_name not in self.copied_store:
+            if file_name not in self.copied_store:
+                if os.path.exists(local_path):
+                    self.copied_store[file_name] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    continue
                 print(f"Downloading {file_name} to {download_dir}")
                 response = requests.get(file_url)
 
@@ -110,7 +113,7 @@ class GoProData:
                     self.copied_store[file_name] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     print(f"Failed to download {file_name}. Status code: {response.status_code}")
-        print(f"copid {len(self.copied_store) - start_len}")
+        print(f"copied {len(self.copied_store) - start_len}")
 
 
 if __name__ == '__main__':
